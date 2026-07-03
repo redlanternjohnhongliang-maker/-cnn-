@@ -4,6 +4,7 @@
     v0/v0.1: in_channels=1, out_channels=1
     v1:      in_channels=2, out_channels=2
     v1.2:    in_channels=3, out_channels=2
+    v1.4:    in_channels=3, out_channels=2
 """
 
 import torch

@@ -21,12 +21,13 @@
 - `soft_hybrid_search`：搜索 `rho / pfa / dilation_iter`。
 - `v1.2`：CFAR-mask gated residual U-Net。
 - `v1.3`：v1.2 加 mask 内修复损失。
+- `v1.4`：CFAR-mask gated clean-prediction U-Net，并用 v1.1 权重初始化。
 
 ## 关键脚本
 
 - `radar_tf_denoise/train.py`：训练入口。
 - `radar_tf_denoise/evaluate.py`：评估入口。
-- `radar_tf_denoise/data_loader.py`：STFT 数据读取和 `complex_mask_residual` 模式。
+- `radar_tf_denoise/data_loader.py`：STFT 数据读取和 `complex_mask_residual` / `complex_mask_clean` 模式。
 - `radar_tf_denoise/losses.py`：`complex_weighted_mag` 和 `complex_weighted_mag_mask`。
 - `radar_tf_denoise/baselines_cfar.py`：CFAR-Z / CFAR-AC。
 - `radar_tf_denoise/soft_hybrid_search.py`：soft hybrid 参数搜索。
@@ -40,6 +41,7 @@
 - `radar_tf_denoise/outputs_soft_hybrid_search/best_summary.csv`
 - `radar_tf_denoise/outputs_v12_full/summary_metrics.csv`
 - `radar_tf_denoise/outputs_v13_full/summary_metrics.csv`
+- `radar_tf_denoise/outputs_v14_full/summary_metrics.csv`
 - `radar_tf_denoise/outputs_v12_error_analysis/error_source_summary.csv`
 - `radar_tf_denoise/outputs_v13_error_analysis/error_source_summary.csv`
 
@@ -51,10 +53,12 @@
 | best hybrid | 0.933625 | 0.935000 | 0.940215 | 59.308798 | 0.810000 | 1.043306 |
 | v1.2 full | 0.909427 | 0.940000 | 0.955796 | 50.505675 | 0.840000 | 1.211985 |
 | v1.3 full | 0.899663 | 0.945000 | 0.953293 | 52.758024 | 0.845000 | 1.269377 |
+| v1.4 full | 0.939975 | 0.960000 | 0.967818 | 40.230449 | 0.880000 | 1.061467 |
 
 当前结论：
 
-- v1.2 的目标峰误差最好，但底噪偏高。
+- v1.4 是当前综合表现最好的版本，目标峰保持、目标峰误差、改善样本率都优于 v1.1 / best hybrid / v1.2 / v1.3。
+- v1.4 的底噪比为 1.061467，明显低于 v1.2/v1.3 的底噪偏高问题。
 - 误差归因显示 v1.2 的问题主要在 mask 内修复不够干净。
 - v1.3 直接加 `mask_loss_weight=5.0` 后，mask 内 MAE 反而升高，底噪也更高，说明这个权重/损失设计不理想。
 

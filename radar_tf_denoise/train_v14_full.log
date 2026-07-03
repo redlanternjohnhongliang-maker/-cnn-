@@ -1,0 +1,33 @@
+STFT 输出尺寸 H,W = (256, 29)
+v1.1 初始化完成: 复制 106 项，跳过 0 项
+训练样本数: 6144, 验证样本数: 1536, device: cuda
+mode: complex_mask_clean, in_channels: 3, out_channels: 2
+loss_type: complex_weighted_mag, peak_weight_alpha: 3.0, mag_loss_beta: 0.5, mask_loss_weight: 5.0
+模型保存目录: G:\雷达数据\arim-master\arim-master\radar_tf_denoise\checkpoints_v14_full
+Epoch 1/20 | train complex_weighted_mag: 0.073663 | val complex_weighted_mag: 0.074015
+保存最优模型: G:\雷达数据\arim-master\arim-master\radar_tf_denoise\checkpoints_v14_full\best_model.pth
+Epoch 2/20 | train complex_weighted_mag: 0.070279 | val complex_weighted_mag: 0.070883
+保存最优模型: G:\雷达数据\arim-master\arim-master\radar_tf_denoise\checkpoints_v14_full\best_model.pth
+Epoch 3/20 | train complex_weighted_mag: 0.069059 | val complex_weighted_mag: 0.072465
+Epoch 4/20 | train complex_weighted_mag: 0.068411 | val complex_weighted_mag: 0.072290
+Epoch 5/20 | train complex_weighted_mag: 0.068094 | val complex_weighted_mag: 0.069290
+保存最优模型: G:\雷达数据\arim-master\arim-master\radar_tf_denoise\checkpoints_v14_full\best_model.pth
+Epoch 6/20 | train complex_weighted_mag: 0.067521 | val complex_weighted_mag: 0.068447
+保存最优模型: G:\雷达数据\arim-master\arim-master\radar_tf_denoise\checkpoints_v14_full\best_model.pth
+Epoch 7/20 | train complex_weighted_mag: 0.067142 | val complex_weighted_mag: 0.070581
+Epoch 8/20 | train complex_weighted_mag: 0.066992 | val complex_weighted_mag: 0.069341
+Epoch 9/20 | train complex_weighted_mag: 0.066641 | val complex_weighted_mag: 0.067896
+保存最优模型: G:\雷达数据\arim-master\arim-master\radar_tf_denoise\checkpoints_v14_full\best_model.pth
+Epoch 10/20 | train complex_weighted_mag: 0.066395 | val complex_weighted_mag: 0.069014
+Epoch 11/20 | train complex_weighted_mag: 0.066139 | val complex_weighted_mag: 0.070468
+Epoch 12/20 | train complex_weighted_mag: 0.066184 | val complex_weighted_mag: 0.068843
+Epoch 13/20 | train complex_weighted_mag: 0.065793 | val complex_weighted_mag: 0.068931
+Epoch 14/20 | train complex_weighted_mag: 0.065645 | val complex_weighted_mag: 0.068021
+Epoch 15/20 | train complex_weighted_mag: 0.065538 | val complex_weighted_mag: 0.067555
+保存最优模型: G:\雷达数据\arim-master\arim-master\radar_tf_denoise\checkpoints_v14_full\best_model.pth
+Epoch 16/20 | train complex_weighted_mag: 0.065342 | val complex_weighted_mag: 0.067874
+Epoch 17/20 | train complex_weighted_mag: 0.065132 | val complex_weighted_mag: 0.066141
+保存最优模型: G:\雷达数据\arim-master\arim-master\radar_tf_denoise\checkpoints_v14_full\best_model.pth
+Epoch 18/20 | train complex_weighted_mag: 0.064966 | val complex_weighted_mag: 0.067440
+Epoch 19/20 | train complex_weighted_mag: 0.064890 | val complex_weighted_mag: 0.068060
+Epoch 20/20 | train complex_weighted_mag: 0.064600 | val complex_weighted_mag: 0.066714

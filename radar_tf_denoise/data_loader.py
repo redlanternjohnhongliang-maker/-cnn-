@@ -37,7 +37,7 @@ class RadarTFDataset(Dataset):
         x: STFT(sb) 实部/虚部，形状 [2, H, W]
         y: STFT(sb0) 实部/虚部，形状 [2, H, W]
 
-    mode="complex_mask_residual" 时，每个样本返回:
+    mode="complex_mask_residual" 或 mode="complex_mask_clean" 时，每个样本返回:
         x: STFT(sb) 实部/虚部 + CFAR mask，形状 [3, H, W]
         y: STFT(sb0) 实部/虚部，形状 [2, H, W]
         noisy_channels: STFT(sb) 实部/虚部，形状 [2, H, W]
@@ -55,8 +55,8 @@ class RadarTFDataset(Dataset):
     ) -> None:
         self.path = path
         self.tf_config = tf_config
-        if mode not in {"magnitude", "complex", "complex_mask_residual"}:
-            raise ValueError("mode 必须是 'magnitude'、'complex' 或 'complex_mask_residual'")
+        if mode not in {"magnitude", "complex", "complex_mask_residual", "complex_mask_clean"}:
+            raise ValueError("mode 必须是 'magnitude'、'complex'、'complex_mask_residual' 或 'complex_mask_clean'")
         self.mode = mode
 
         data = np.load(path, allow_pickle=True)[()]
@@ -81,14 +81,14 @@ class RadarTFDataset(Dataset):
             y = torch.from_numpy(y).unsqueeze(0).float()
             return x, y
 
-        if self.mode == "complex_mask_residual":
+        if self.mode in {"complex_mask_residual", "complex_mask_clean"}:
             _, _, noisy_zxx = complex_stft(self.sb[index], self.tf_config)
             _, _, clean_zxx = complex_stft(self.sb0[index], self.tf_config)
             noisy_channels = complex_to_channels(noisy_zxx)
             clean_channels = complex_to_channels(clean_zxx)
             mask = build_best_cfar_mask(noisy_zxx)[None, :, :]
 
-            # input 的第 3 个通道是 CFAR mask；训练时最终输出为 noisy + mask * residual。
+            # input 的第 3 个通道是 CFAR mask；v1.2 预测 residual，v1.4 预测 clean STFT。
             x = np.concatenate([noisy_channels, mask], axis=0)
             return (
                 torch.from_numpy(x).float(),

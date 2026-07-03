@@ -51,7 +51,7 @@ def parse_args():
     parser.add_argument("--output_dir", default=None, help="评估输出目录；默认保存到 outputs")
     parser.add_argument(
         "--mode",
-        choices=["magnitude", "complex", "complex_mask_residual"],
+        choices=["magnitude", "complex", "complex_mask_residual", "complex_mask_clean"],
         default="magnitude",
         help="输入输出模式",
     )
@@ -64,6 +64,8 @@ def resolve_output_dir(script_dir, output_dir, mode):
     magnitude 默认保持 v0 的 outputs 不变；complex 默认输出到 outputs_v1。
     """
     if output_dir is None:
+        if mode == "complex_mask_clean":
+            return os.path.join(script_dir, "outputs_v14_full")
         if mode == "complex_mask_residual":
             return os.path.join(script_dir, "outputs_v12_smoke")
         if mode == "complex":
@@ -172,7 +174,7 @@ def main():
 
     dataset = RadarTFDataset(args.test_path, max_samples=args.max_samples, tf_config=cfg, mode=args.mode)
     labels = load_label_arrays(args.test_path, max_samples=args.max_samples)
-    if args.mode == "complex_mask_residual":
+    if args.mode in {"complex_mask_residual", "complex_mask_clean"}:
         in_channels = int(checkpoint.get("in_channels", 3))
         out_channels = int(checkpoint.get("out_channels", 2))
     elif args.mode == "complex":
@@ -200,10 +202,14 @@ def main():
 
     with torch.no_grad():
         for out_idx, data_idx in enumerate(indices):
-            if args.mode == "complex_mask_residual":
+            if args.mode in {"complex_mask_residual", "complex_mask_clean"}:
                 x, y, noisy_channels, mask = dataset[data_idx]
-                residual_tensor = model(x.unsqueeze(0).to(device)).squeeze(0).cpu()
-                pred_tensor = noisy_channels + mask * residual_tensor
+                model_out = model(x.unsqueeze(0).to(device)).squeeze(0).cpu()
+                if args.mode == "complex_mask_residual":
+                    pred_tensor = noisy_channels + mask * model_out
+                else:
+                    # v1.4: mask 内使用 clean 预测，非 mask 区域保留 noisy。
+                    pred_tensor = mask * model_out + (1.0 - mask) * noisy_channels
                 pred = pred_tensor.numpy()
                 x_np = noisy_channels.numpy()
                 y_np = y.numpy()

@@ -34,9 +34,10 @@ def parse_args():
     parser.add_argument("--mag_loss_beta", type=float, default=0.5, help="复数幅度损失权重")
     parser.add_argument("--mask_loss_weight", type=float, default=5.0, help="v1.3 mask 内复数 L1 损失权重")
     parser.add_argument("--save_dir", default=None, help="模型保存目录；不传时按 loss_type 自动选择")
+    parser.add_argument("--init_from_v11", default=None, help="用 v1.1 checkpoint 初始化 v1.4 的可兼容权重")
     parser.add_argument(
         "--mode",
-        choices=["magnitude", "complex", "complex_mask_residual"],
+        choices=["magnitude", "complex", "complex_mask_residual", "complex_mask_clean"],
         default="magnitude",
         help="输入输出模式",
     )
@@ -50,7 +51,9 @@ def resolve_save_dir(script_dir, mode, loss_type, save_dir):
     complex 默认保存到 checkpoints_v1，v1.1 默认保存到 checkpoints_v11，避免覆盖 v0/v0.1/v1。
     """
     if save_dir is None:
-        if mode == "complex_mask_residual":
+        if mode == "complex_mask_clean":
+            dirname = "checkpoints_v14_full"
+        elif mode == "complex_mask_residual":
             dirname = "checkpoints_v13_full" if loss_type == "complex_weighted_mag_mask" else "checkpoints_v12_smoke"
         elif mode == "complex":
             dirname = "checkpoints_v11" if loss_type == "complex_weighted_mag" else "checkpoints_v1"
@@ -64,13 +67,61 @@ def resolve_save_dir(script_dir, mode, loss_type, save_dir):
     return os.path.join(script_dir, save_dir)
 
 
+def init_model_from_v11(model, checkpoint_path, device):
+    """用 v1.1 的 2 通道复数模型初始化 v1.4 的 3 通道输入模型。
+
+    第一层卷积多出的 mask 通道权重置 0；其余 shape 完全一致的层直接复制。
+    """
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    source_state = checkpoint["model_state_dict"]
+    target_state = model.state_dict()
+    copied = []
+    skipped = []
+
+    for key, target_value in target_state.items():
+        if key not in source_state:
+            skipped.append((key, "v1.1 checkpoint 中不存在"))
+            continue
+
+        source_value = source_state[key]
+        if source_value.shape == target_value.shape:
+            target_state[key] = source_value
+            copied.append(key)
+            continue
+
+        if (
+            key == "inc.net.0.weight"
+            and len(source_value.shape) == 4
+            and len(target_value.shape) == 4
+            and source_value.shape[0] == target_value.shape[0]
+            and source_value.shape[1] == 2
+            and target_value.shape[1] == 3
+            and source_value.shape[2:] == target_value.shape[2:]
+        ):
+            new_weight = target_value.clone()
+            new_weight[:, :2] = source_value
+            new_weight[:, 2:3] = 0.0
+            target_state[key] = new_weight
+            copied.append(f"{key} 前两个通道复制，mask 通道置 0")
+            continue
+
+        skipped.append((key, f"shape 不一致: v1.1 {tuple(source_value.shape)} -> 当前 {tuple(target_value.shape)}"))
+
+    model.load_state_dict(target_state)
+    print(f"v1.1 初始化完成: 复制 {len(copied)} 项，跳过 {len(skipped)} 项")
+    for item in skipped[:20]:
+        print(f"  跳过 {item[0]}: {item[1]}")
+    if len(skipped) > 20:
+        print(f"  其余跳过项数量: {len(skipped) - 20}")
+
+
 def run_epoch(model, loader, criterion, optimizer, device, train: bool, mode: str, loss_type: str):
     model.train(train)
     total_loss = 0.0
     total_count = 0
 
     for batch in loader:
-        if mode == "complex_mask_residual":
+        if mode in {"complex_mask_residual", "complex_mask_clean"}:
             x, y, noisy_channels, mask = batch
             x = x.to(device, non_blocking=True)
             y = y.to(device, non_blocking=True)
@@ -86,6 +137,10 @@ def run_epoch(model, loader, criterion, optimizer, device, train: bool, mode: st
                 # v1.2: 网络只预测 residual，最终输出只在 CFAR mask 区域修复。
                 residual = model(x)
                 pred = noisy_channels + mask * residual
+            elif mode == "complex_mask_clean":
+                # v1.4: 网络直接预测 clean STFT；非 mask 区域保留原始 noisy STFT。
+                clean_pred = model(x)
+                pred = mask * clean_pred + (1.0 - mask) * noisy_channels
             else:
                 pred = model(x)
             if mode == "complex_mask_residual" and loss_type == "complex_weighted_mag_mask":
@@ -144,7 +199,7 @@ def main():
         pin_memory=(device.type == "cuda"),
     )
 
-    if args.mode == "complex_mask_residual":
+    if args.mode in {"complex_mask_residual", "complex_mask_clean"}:
         in_channels = 3
         out_channels = 2
     elif args.mode == "complex":
@@ -154,7 +209,7 @@ def main():
         in_channels = 1
         out_channels = 1
     model = SmallUNet(in_channels=in_channels, out_channels=out_channels).to(device)
-    if args.mode in {"complex", "complex_mask_residual"}:
+    if args.mode in {"complex", "complex_mask_residual", "complex_mask_clean"}:
         effective_loss_type = args.loss_type if args.loss_type.startswith("complex_") else "complex_l1_mag"
     else:
         if args.loss_type.startswith("complex_"):
@@ -168,6 +223,8 @@ def main():
         mag_loss_beta=args.mag_loss_beta,
         mask_loss_weight=args.mask_loss_weight,
     )
+    if args.init_from_v11:
+        init_model_from_v11(model, args.init_from_v11, device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -221,6 +278,7 @@ def main():
                     "peak_weight_alpha": args.peak_weight_alpha,
                     "mag_loss_beta": args.mag_loss_beta,
                     "mask_loss_weight": args.mask_loss_weight,
+                    "init_from_v11": args.init_from_v11,
                 },
                 best_path,
             )
