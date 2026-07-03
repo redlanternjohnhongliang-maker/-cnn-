@@ -1,4 +1,10 @@
-"""小型 U-Net，用于单通道时频图去干扰。"""
+"""小型 U-Net，用于时频图去干扰。
+
+支持:
+    v0/v0.1: in_channels=1, out_channels=1
+    v1:      in_channels=2, out_channels=2
+    v1.2:    in_channels=3, out_channels=2
+"""
 
 import torch
 import torch.nn as nn
@@ -49,7 +55,7 @@ class Up(nn.Module):
 
 
 class SmallUNet(nn.Module):
-    """输入 [B, 1, H, W]，输出 [B, 1, H, W]。"""
+    """输入 [B, C, H, W]，输出 [B, C, H, W]。"""
 
     def __init__(self, in_channels: int = 1, out_channels: int = 1, base_channels: int = 16) -> None:
         super().__init__()

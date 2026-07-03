@@ -102,6 +102,35 @@ def stft_magnitude(x: np.ndarray, cfg: TFConfig = TFConfig()) -> np.ndarray:
     return magnitude_to_model_space(mag, cfg)
 
 
+def complex_to_channels(zxx: np.ndarray) -> np.ndarray:
+    """把复数 STFT 转成两通道实数张量。
+
+    输入:
+        zxx: 复数 STFT，形状 [H, W]
+
+    输出:
+        channels: 两通道数组，形状 [2, H, W]
+            channels[0] 是实部
+            channels[1] 是虚部
+    """
+    zxx = np.asarray(zxx)
+    return np.stack([zxx.real, zxx.imag], axis=0).astype(np.float32)
+
+
+def channels_to_complex(channels: np.ndarray) -> np.ndarray:
+    """把 [2, H, W] 实部/虚部通道还原成复数 STFT。"""
+    channels = np.asarray(channels)
+    if channels.shape[0] != 2:
+        raise ValueError(f"复数通道输入必须是 [2,H,W]，当前形状: {channels.shape}")
+    return channels[0].astype(np.float64) + 1j * channels[1].astype(np.float64)
+
+
+def stft_complex_channels(x: np.ndarray, cfg: TFConfig = TFConfig()) -> np.ndarray:
+    """计算复数 STFT，并输出 [2,H,W] 的实部/虚部通道。"""
+    _, _, zxx = complex_stft(x, cfg)
+    return complex_to_channels(zxx)
+
+
 def istft_from_magnitude_and_phase(
     magnitude: np.ndarray,
     phase_source: np.ndarray,
@@ -116,6 +145,32 @@ def istft_from_magnitude_and_phase(
     raw_mag = model_space_to_magnitude(magnitude, cfg)
     phase = np.exp(1j * np.angle(phase_source))
     zxx = raw_mag * phase
+    _, x_rec = signal.istft(
+        zxx,
+        fs=cfg.fs,
+        window=cfg.window,
+        nperseg=cfg.nperseg,
+        noverlap=cfg.noverlap,
+        nfft=cfg.nfft,
+        input_onesided=False,
+        boundary=False,
+    )
+    x_rec = np.asarray(x_rec)
+    if len(x_rec) < signal_length:
+        x_rec = np.pad(x_rec, (0, signal_length - len(x_rec)))
+    return x_rec[:signal_length]
+
+
+def istft_from_channels(
+    channels: np.ndarray,
+    signal_length: int,
+    cfg: TFConfig = TFConfig(),
+) -> np.ndarray:
+    """用预测的实部/虚部 STFT 做 ISTFT，恢复时域复数信号。
+
+    STFT 和 ISTFT 使用同一套 window、nperseg、noverlap、nfft、fs 参数。
+    """
+    zxx = channels_to_complex(channels)
     _, x_rec = signal.istft(
         zxx,
         fs=cfg.fs,

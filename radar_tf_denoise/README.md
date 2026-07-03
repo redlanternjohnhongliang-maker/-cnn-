@@ -2,7 +2,10 @@
 
 这个目录是独立实验目录，不依赖也不修改原始 `training` 训练入口。
 
-当前版本命名为 `v0`：单通道幅度时频图 U-Net。
+当前已有版本：
+
+- `v0`：单通道幅度时频图 U-Net，使用普通 L1 损失。
+- `v0.1`：模型结构不变，使用加权 L1 损失，更强调干净时频图中的高能量目标区域。
 
 ## 任务定义
 
@@ -79,17 +82,17 @@ G:\雷达数据\arim-master\arim-master\training\arim_test_random.npy
 
 ## 训练
 
-先用 200 条样本做小规模冒烟测试：
+### v0：普通 L1
 
 ```powershell
 cd "G:\雷达数据\arim-master\arim-master\radar_tf_denoise"
 $env:PYTHONPATH="G:\雷达数据\arim-master\arim-master\radar_tf_denoise"
 & "G:\Anaconda\envs\cnn_learn\python.exe" train.py `
-  --train_path "G:\雷达数据\arim-master\arim-master\training\arim_train.npy" `
-  --epochs 2 `
-  --batch_size 8 `
+  --train_path "G:\雷达数据\arim-master\arim-master\training\arim_train_random.npy" `
+  --epochs 5 `
+  --batch_size 16 `
   --lr 0.001 `
-  --max_samples 200 `
+  --loss_type l1 `
   --device cuda
 ```
 
@@ -97,6 +100,38 @@ $env:PYTHONPATH="G:\雷达数据\arim-master\arim-master\radar_tf_denoise"
 
 ```text
 radar_tf_denoise\checkpoints\best_model.pth
+```
+
+### v0.1：加权 L1
+
+加权 L1 的形式为：
+
+```text
+clean_norm = clean / (clean.max() + eps)
+weight = 1 + alpha * clean_norm
+loss = mean(weight * abs(pred - clean))
+```
+
+训练命令：
+
+```powershell
+cd "G:\雷达数据\arim-master\arim-master\radar_tf_denoise"
+$env:PYTHONPATH="G:\雷达数据\arim-master\arim-master\radar_tf_denoise"
+& "G:\Anaconda\envs\cnn_learn\python.exe" train.py `
+  --train_path "G:\雷达数据\arim-master\arim-master\training\arim_train_random.npy" `
+  --epochs 5 `
+  --batch_size 16 `
+  --lr 0.001 `
+  --loss_type weighted_l1 `
+  --peak_weight_alpha 3.0 `
+  --save_dir "G:\雷达数据\arim-master\arim-master\radar_tf_denoise\checkpoints_v01" `
+  --device cuda
+```
+
+v0.1 最优模型会保存到：
+
+```text
+radar_tf_denoise\checkpoints_v01\best_model.pth
 ```
 
 ## 评估
@@ -123,6 +158,26 @@ radar_tf_denoise\outputs
 
 ```text
 radar_tf_denoise\outputs\metrics.csv
+```
+
+v0.1 建议单独输出到：
+
+```powershell
+cd "G:\雷达数据\arim-master\arim-master\radar_tf_denoise"
+$env:PYTHONPATH="G:\雷达数据\arim-master\arim-master\radar_tf_denoise"
+& "G:\Anaconda\envs\cnn_learn\python.exe" evaluate.py `
+  --test_path "G:\雷达数据\arim-master\arim-master\training\arim_test_random.npy" `
+  --checkpoint "G:\雷达数据\arim-master\arim-master\radar_tf_denoise\checkpoints_v01\best_model.pth" `
+  --num_samples 200 `
+  --device cuda `
+  --output_dir "G:\雷达数据\arim-master\arim-master\radar_tf_denoise\outputs_v01"
+```
+
+v0.1 指标会保存到：
+
+```text
+radar_tf_denoise\outputs_v01\metrics.csv
+radar_tf_denoise\outputs_v01\summary_metrics.csv
 ```
 
 每个样本会保存：

@@ -1,0 +1,2 @@
+mean_mask_ratio,mean_high_interference_coverage,mean_target_mask_overlap_ratio,mean_mask_in_noisy_mae,mean_mask_out_noisy_mae,mean_mask_in_v11_mae,mean_mask_out_v11_mae,mean_mask_in_v13_mae,mean_mask_out_v13_mae
+0.11541554418103449,0.8342597577388964,0.08002512525788388,3.2070876888607076,0.031036333303398386,0.15305679759229376,0.04126325673734152,0.2525653220657314,0.03103633748927227
